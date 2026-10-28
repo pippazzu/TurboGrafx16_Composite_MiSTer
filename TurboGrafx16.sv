@@ -75,7 +75,7 @@ video_freak video_freak
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXX XXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXX
+// XXXX XXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -109,6 +109,8 @@ parameter CONF_STR = {
 	"P1-;",
 	"D7P1OS,Colors,Original,Raw RGB;",
 	"P1o78,Composite,Off,Budget TV,Premium TV;",
+	"d7P1oAC,Comp. Brightness,Japan,USA,More,Much More,Too Much;",
+	"d7P1oDE,Comp. Sharpness,Off,Low,Medium,High;",
 	"P1OH,Overscan,Hidden,Visible;",
 	"P1OF,Border Color,Original,Black;",
 	"P1OB,Sprites per line,Normal,Extra;",
@@ -519,6 +521,9 @@ wire  [1:0] comp_dot_mode; // line-latched native mode, diagnostic only
 wire composite_en = (status[40:39] == 2'd1) || (status[40:39] == 2'd2);
 wire composite_premium = status[40:39] == 2'd2;
 wire composite_reset = reset | cart_download;
+// Kitrinx NES receiver settings: Japan 0 IRE, USA 7.5 IRE setup, then lifts.
+wire [15:0] comp_brightness = status[44:42] == 3'd1 ? 16'hFE49 : status[44:42] == 3'd2 ? 16'd292 :
+	status[44:42] == 3'd3 ? 16'd643 : status[44:42] == 3'd4 ? 16'd936 : 16'd0;
 wire dec_pix, dec_hs, dec_vs, dec_hb, dec_vb;
 wire [7:0] dec_r, dec_g, dec_b;
 wire cvbs_ce, cvbs_hs, cvbs_vs, cvbs_hb, cvbs_vb;
@@ -538,6 +543,8 @@ pce_composite composite
 	.hs(hs), .vs(vs), .hbl(hbl), .vbl(vbl),
 	.premium(composite_premium),
 	.overscan(status[17]),
+	.brightness(comp_brightness),
+	.sharpness(status[46:45]),
 	.pix(dec_pix),
 	.hs_out(dec_hs), .vs_out(dec_vs), .hb_out(dec_hb), .vb_out(dec_vb),
 	.r_out(dec_r), .g_out(dec_g), .b_out(dec_b)
