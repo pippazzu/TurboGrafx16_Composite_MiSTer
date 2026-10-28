@@ -75,7 +75,7 @@ video_freak video_freak
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXX XXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXX
+// XXXX XXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -116,6 +116,7 @@ parameter CONF_STR = {
 	"P1OK,CD Audio Boost,No,2x;",
 	"P1OM,ADPCM Audio Boost,No,Yes;",
 	"P1OIJ,Master Audio Boost,No,2x,4x;",
+	"P1o9,PSG Filter,Core,TurboBooster;",
 	"P2,Hardware;",
 	"P2-;",
 	"P2O3,ROM Data Swap,No,Yes;",
@@ -747,6 +748,23 @@ IIR_filter #(
 	.output_l  (adpcm_filt)
 );
 
+// TurboBooster AV stage: replaces psg_filter with the accessory's
+// coupling high-pass and op-amp low-pass. CD audio does not pass through it.
+logic [15:0] psg_l_booster, psg_r_booster;
+pce_booster_audio psg_booster
+(
+	.clk   (clk_sys),
+	.reset (reset),
+	.ce    (adpcm_ce), // 1342323
+	.in_l  (psg_sl),
+	.in_r  (psg_sr),
+	.out_l (psg_l_booster),
+	.out_r (psg_r_booster)
+);
+
+wire [15:0] psg_l_out = status[41] ? psg_l_booster : psg_l_filt;
+wire [15:0] psg_r_out = status[41] ? psg_r_booster : psg_r_filt;
+
 always @(posedge clk_sys) begin
 	reg [17:0] pre_l, pre_r;
 	reg signed [16:0] adpcm_boost;
@@ -754,12 +772,12 @@ always @(posedge clk_sys) begin
 
 	pre_l <= ( CDDA_EN                  ? {{2{cdda_sl[15]}},         cdda_sl} : 18'd0)
 			 + ((CDDA_EN && status[20]) ? {{2{cdda_sl[15]}},         cdda_sl} : 18'd0)
-			 + ( PSG_EN                 ? {{2{psg_l_filt[15]}},   psg_l_filt} : 18'd0)
+			 + ( PSG_EN                 ? {{2{psg_l_out[15]}},     psg_l_out} : 18'd0)
 			 + ( ADPCM_EN               ? {adpcm_boost[16],   adpcm_boost} : 18'd0);
 
 	pre_r <= ( CDDA_EN                  ? {{2{cdda_sr[15]}},         cdda_sr} : 18'd0)
 			 + ((CDDA_EN && status[20]) ? {{2{cdda_sr[15]}},         cdda_sr} : 18'd0)
-			 + ( PSG_EN                 ? {{2{psg_r_filt[15]}},   psg_r_filt} : 18'd0)
+			 + ( PSG_EN                 ? {{2{psg_r_out[15]}},     psg_r_out} : 18'd0)
 			 + ( ADPCM_EN               ? {adpcm_boost[16],   adpcm_boost} : 18'd0);
 
 	if(~status[20]) begin

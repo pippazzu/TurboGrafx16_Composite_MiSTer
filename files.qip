@@ -24,3 +24,4 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/huc6260_composite.s
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/pce_av_board.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/pce_cvbs_out.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/composite_decoder.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/pce_booster_audio.sv
