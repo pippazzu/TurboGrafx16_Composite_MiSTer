@@ -1,4 +1,6 @@
-# [TurboGrafx 16 / PC Engine](https://en.wikipedia.org/wiki/TurboGrafx-16) for [MiSTer Platform](https://github.com/MiSTer-devel/Main_MiSTer/wiki) 
+# [TurboGrafx 16 / PC Engine](https://en.wikipedia.org/wiki/TurboGrafx-16) for [MiSTer Platform](https://github.com/MiSTer-devel/Main_MiSTer/wiki), with composite video
+
+This fork adds the console's composite video: the picture a PC Engine sends through its AV booster, decoded with Kitrinx's composite filters. It also adds the AV booster's audio filter for the PSG. See [Composite video](#composite-video).
 
 ### This is the port of Gregory Estrade's [FPGAPCE](https://github.com/Torlus/FPGAPCE)
 
@@ -32,6 +34,7 @@ Further refinements and maintanance by [dshadoff](https://github.com/dshadoff)
    - Memory Base 128 storage unit
    - Cheat engine
    - CHD Support
+   - Composite video (see [below](#composite-video))
 
 ## Installation:
 Copy the *.rbf file at the root of the SD card. Copy roms (*PCE,*BIN) to **TGFX16** folder. You may rename ROM of your favorite game to **boot.rom** - it will be automatically loaded upon core loading.
@@ -124,6 +127,19 @@ Pachinko controller is supported through either paddle or analog joystick Y axis
 
 ## Palettes
 The 'Original' palette is based on reverse engineering work of the VDP by [furrtek](https://github.com/furrtek). An RGB to YUV lookup table was discovered that translates the colors to their intended values with the composite output of the console. Further work was done by [ArtemioUrbina](https://github.com/ArtemioUrbina) to verify the color output. [Kitrinx](https://github.com/Kitrinx) created a tool to generate the resulting [palette](https://github.com/Kitrinx/TG16_Palette).
+
+## Composite video
+
+Based on Kitrinx's NES core implementation. The HuC6260 is the console's colour encoder: its colour lookup comes from Furrtek's decap and electrical readout (Kitrinx's transcription), its clock and outputs from the HuC6260 manual and the board schematics. The board's summing network is from the PWD-623A schematic, and the picture is decoded with Kitrinx's composite filters. Colour strength and hue follow Kitrinx's fit to a Duo-R measured by Artemio Urbina. Runs in step with the video signal, adding under a microsecond of delay. Technical notes: [docs/composite.md](docs/composite.md).
+
+Options, in **Audio & Video**:
+
+* **Composite**: Off / Budget TV (notch filter: softer picture, dot crawl and false colour on fine patterns) / Premium TV (adaptive comb filter: sharper, with less of both).
+* **Comp. Brightness**: Japan (black at blanking) / USA (a US set: the darkest shades crush to black) / More / Much More / Too Much.
+* **Comp. Sharpness**: Off / Low / Medium / High (the TV's sharpness knob).
+* **PSG Filter**: Core (the core's own PSG low-pass) / TurboBooster (the AV booster's audio stage: 58.9 Hz high-pass, 8.84 kHz low-pass). CD and ADPCM audio keep their own filters.
+
+This core is for 15 kHz RGB CRTs and HDMI. With Composite on, the scandoubler and HQ2x are bypassed and **Scandoubler Fx** and **Colors** are greyed out; their settings apply again with Composite off. For 31 kHz monitors, turn Composite off or use the main core.
 
 ## Memory Base 128 / Save-kun
 This was an external save-game mechanism used by a small number of games, late in the PC Engine's life, particularly for complex simulations like the KOEI games.
