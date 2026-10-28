@@ -79,6 +79,13 @@ entity pce_top is
 
 		BORDER_EN	: in  std_logic;
 		ReducedVBL	: in  std_logic;
+
+		-- Raw VCE timing state (CLK domain, no added registers)
+		COMP_HCOUNT     : out std_logic_vector(11 downto 0);
+		COMP_VCOUNT     : out std_logic_vector(9 downto 0);
+		COMP_FRAME_LINES: out std_logic_vector(8 downto 0);
+		COMP_DOT_MODE   : out std_logic_vector(1 downto 0);
+
 		VIDEO_R		: out std_logic_vector(2 downto 0);
 		VIDEO_G		: out std_logic_vector(2 downto 0);
 		VIDEO_B		: out std_logic_vector(2 downto 0);
@@ -336,6 +343,12 @@ port map(
 	BORDER	=> BORDER,
 	GRID		=> GRID,
 		
+	-- Raw VCE timing state
+	COMP_HCOUNT      => COMP_HCOUNT,
+	COMP_VCOUNT      => COMP_VCOUNT,
+	COMP_FRAME_LINES => COMP_FRAME_LINES,
+	COMP_DOT_MODE    => COMP_DOT_MODE,
+
 	-- NTSC/RGB Video Output
 	R			=> VIDEO_R,
 	G			=> VIDEO_G,

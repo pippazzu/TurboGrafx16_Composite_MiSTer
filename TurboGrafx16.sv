@@ -55,7 +55,7 @@ wire [3:0] vcopt    = status[36:33];
 reg        en216p;
 reg  [4:0] voff;
 always @(posedge CLK_VIDEO) begin
-	en216p <= ((HDMI_WIDTH == 1920) && (HDMI_HEIGHT == 1080) && !forced_scandoubler && !scale);
+	en216p <= ((HDMI_WIDTH == 1920) && (HDMI_HEIGHT == 1080) && (composite_en || (!forced_scandoubler && !scale)));
 	voff <= (vcopt < 6) ? {vcopt,1'b0} : ({vcopt,1'b0} - 5'd24);
 end
 
@@ -101,13 +101,14 @@ parameter CONF_STR = {
 	"P1,Audio & Video;",
 	"P1-;",
 	"P1OOP,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
-	"P1O8A,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+	"H7P1O8A,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"P1-;",
 	"d6P1o0,Vertical Crop,Disabled,216p(5x);",
 	"d6P1o14,Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;",
 	"P1o56,Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
 	"P1-;",
 	"P1OS,Colors,Original,Raw RGB;",
+	"P1o78,Composite,Off,Budget TV,Premium TV;",
 	"P1OH,Overscan,Hidden,Visible;",
 	"P1OF,Border Color,Original,Black;",
 	"P1OB,Sprites per line,Normal,Extra;",
@@ -222,7 +223,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1)) hps_io
 
 	.buttons(buttons),
 	.status(status),
-	.status_menumask({en216p, snac, 1'd1, use_sdr, ~use_sdr, ~gg_avail,~bk_ena}),
+	.status_menumask({composite_en, en216p, snac, 1'd1, use_sdr, ~use_sdr, ~gg_avail,~bk_ena}),
 	.forced_scandoubler(forced_scandoubler),
 
 	.sdram_sz(sdram_sz),
@@ -382,7 +383,11 @@ pce_top #(LITE) pce_top
 	.VIDEO_VS(vs),
 	.VIDEO_HS(hs),
 	.VIDEO_HBL(hbl),
-	.VIDEO_VBL(vbl)
+	.VIDEO_VBL(vbl),
+	.COMP_HCOUNT(comp_hcount),
+	.COMP_VCOUNT(comp_vcount),
+	.COMP_FRAME_LINES(comp_frame_lines),
+	.COMP_DOT_MODE(comp_dot_mode)
 );
 
 
@@ -505,6 +510,50 @@ wire hs,vs;
 wire hbl,vbl;
 wire bw;
 
+// Raw VCE taps: composite branches before the Original palette and BW mix.
+wire [11:0] comp_hcount;
+wire  [9:0] comp_vcount;
+wire  [8:0] comp_frame_lines;
+wire  [1:0] comp_dot_mode; // line-latched native mode, diagnostic only
+wire composite_en = (status[40:39] == 2'd1) || (status[40:39] == 2'd2);
+wire composite_premium = status[40:39] == 2'd2;
+wire composite_reset = reset | cart_download;
+wire dec_pix, dec_hs, dec_vs, dec_hb, dec_vb;
+wire [7:0] dec_r, dec_g, dec_b;
+wire cvbs_ce, cvbs_hs, cvbs_vs, cvbs_hb, cvbs_vb;
+wire [7:0] cvbs_r, cvbs_g, cvbs_b;
+
+// Parent supplies the streaming source/board/receiver wrapper. Run on the
+// existing 42.954545 MHz clock, independently of presentation/native dot CE.
+pce_composite composite
+(
+	.clk(clk_sys),
+	.reset(composite_reset),
+	.color({g,r,b}),
+	.bw(bw),
+	.hcount(comp_hcount),
+	.vcount(comp_vcount),
+	.frame_lines(comp_frame_lines),
+	.hs(hs), .vs(vs), .hbl(hbl), .vbl(vbl),
+	.premium(composite_premium),
+	.overscan(status[17]),
+	.pix(dec_pix),
+	.hs_out(dec_hs), .vs_out(dec_vs), .hb_out(dec_hb), .vb_out(dec_vb),
+	.r_out(dec_r), .g_out(dec_g), .b_out(dec_b)
+);
+
+pce_cvbs_out composite_out
+(
+	.clk_dec(clk_sys), .reset(composite_reset),
+	.pix_in(dec_pix),
+	.hs_in(dec_hs), .vs_in(dec_vs), .hb_in(dec_hb), .vb_in(dec_vb),
+	.r_in(dec_r), .g_in(dec_g), .b_in(dec_b),
+	.clk_vid(CLK_VIDEO),
+	.ce_pix(cvbs_ce),
+	.hs(cvbs_hs), .vs(cvbs_vs), .hb(cvbs_hb), .vb(cvbs_vb),
+	.r(cvbs_r), .g(cvbs_g), .b(cvbs_b)
+);
+
 wire ce_vid;
 assign CLK_VIDEO = clk_ram;
 
@@ -594,7 +643,7 @@ wire HBlank,VBlank;
 wire [2:0] scale = status[10:8];
 wire [2:0] sl = scale ? scale - 1'd1 : 3'd0;
 
-assign VGA_SL = sl[1:0];
+assign VGA_SL = composite_en ? 2'd0 : sl[1:0];
 
 reg VSync, HSync;
 always @(posedge CLK_VIDEO) begin
@@ -602,13 +651,24 @@ always @(posedge CLK_VIDEO) begin
 	if(~HSync & HS) VSync <= VS;
 end
 
-video_mixer #(.LINE_LENGTH(560), .GAMMA(1)) video_mixer
+video_mixer #(.LINE_LENGTH(640), .GAMMA(1)) video_mixer
 (
 	.*,
 	.VGA_DE(vga_de),
 	.freeze_sync(),
-	.scandoubler(scale || forced_scandoubler),
-	.hq2x(scale==1)
+	// Select the complete pixel bundle; decoded BW is already applied.
+	.ce_pix(composite_en ? cvbs_ce : ce_pix),
+	.R(composite_en ? cvbs_r : R),
+	.G(composite_en ? cvbs_g : G),
+	.B(composite_en ? cvbs_b : B),
+	.HSync(composite_en ? cvbs_hs : HSync),
+	.VSync(composite_en ? cvbs_vs : VSync),
+	.HBlank(composite_en ? cvbs_hb : HBlank),
+	.VBlank(composite_en ? cvbs_vb : VBlank),
+	// Like the NES composite path, use decoded RGB for the HDMI scaler
+	// and standard analogue output. Effects apply to native RGB only.
+	.scandoubler((scale || forced_scandoubler) && !composite_en),
+	.hq2x(scale==1 && !composite_en)
 );
 
 

@@ -17,3 +17,10 @@ set_global_assignment -name VERILOG_FILE rtl/xe1ap.v
 set_global_assignment -name VHDL_FILE rtl/pce_top.vhd
 set_global_assignment -name SDC_FILE TurboGrafx16.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE TurboGrafx16.sv
+
+# Streaming composite source, receiver and related-clock pixel bridge.
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/pce_composite.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/huc6260_composite.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/pce_av_board.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/pce_cvbs_out.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/composite/composite_decoder.sv

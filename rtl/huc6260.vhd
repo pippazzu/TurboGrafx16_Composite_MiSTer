@@ -35,6 +35,13 @@ entity huc6260 is
 		BORDER	: in std_logic;
 		GRID		: in std_logic_vector(1 downto 0);
 
+
+		-- Raw VCE timing state (CLK domain, no added registers)
+		COMP_HCOUNT     : out std_logic_vector(11 downto 0);
+		COMP_VCOUNT     : out std_logic_vector(9 downto 0);
+		COMP_FRAME_LINES: out std_logic_vector(8 downto 0);
+		COMP_DOT_MODE   : out std_logic_vector(1 downto 0);
+
 		-- NTSC/RGB Video Output
 		R			: out std_logic_vector(2 downto 0);
 		G			: out std_logic_vector(2 downto 0);
@@ -106,6 +113,12 @@ signal MULTIRES_FF : std_logic;
 signal MULTIRES   : std_logic;
 
 begin
+
+-- Direct state taps; counts are not delayed to match the held RGB outputs.
+COMP_HCOUNT <= H_CNT;
+COMP_VCOUNT <= V_CNT;
+COMP_FRAME_LINES <= std_logic_vector(to_unsigned(END_LINE, COMP_FRAME_LINES'length));
+COMP_DOT_MODE <= DOTCLOCK;
 
 TOP_BL_LINES <= TOP_BL_LINES_E when RVBL = '1' else TOP_BL_LINES_E+4;
 DISP_LINES   <= DISP_LINES_E   when RVBL = '1' else DISP_LINES_E-11;
