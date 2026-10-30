@@ -50,7 +50,7 @@ module pce_composite (
     // after the recovered sync trailing edge; geometry is samples / lines.
     // These receiver choices and source phase/gates require hardware comparison.
     composite_decoder #(
-        .SPC(12), .HCNT_W(12), .PIX_DIV(4),
+        .SPC(12), .HCNT_W(12), .PIX_DIV(2),
         .LUMA_LP(6), .PK_SPAN(7),
         .BURST_GATE_TENTHS(13), .CLAMP_GATE_TENTHS(38),
         .HS_WIDTH(192), .HB_END(390), .FRONT_PORCH(73)

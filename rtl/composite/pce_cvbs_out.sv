@@ -16,10 +16,11 @@
 //============================================================================
 
 // Related PLL clocks: clk_dec = 42.954545 MHz, clk_vid = 85.909090 MHz.
-// Each decoder pixel is held for four decoder clocks (eight video clocks).
+// Each decoder pixel is held for two decoder clocks (four video clocks).
 // Synchronize its event toggle, then capture the entire held bundle together.
 // This is a bounded held-data crossing, not an arbitrary-rate async FIFO:
-// pix_in must be a one-cycle strobe, at least four clk_dec cycles apart.
+// pix_in must be a one-cycle strobe, at least two clk_dec cycles apart: the
+// bundle is captured three video clocks after the toggle, one before the next.
 module pce_cvbs_out (
 	input            clk_dec,
 	input            reset,

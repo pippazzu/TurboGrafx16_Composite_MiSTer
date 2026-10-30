@@ -659,20 +659,48 @@ always @(posedge CLK_VIDEO) begin
 	if(~HSync & HS) VSync <= VS;
 end
 
-video_mixer #(.LINE_LENGTH(640), .GAMMA(1)) video_mixer
+// Gamma before the mixer: decoded pixels come every four video clocks, too
+// fast for video_mixer's gamma_corr (one lookup per clock, three per pixel).
+// gamma_fast looks up R, G and B at once, with the same curve and the same
+// one-pixel delay.
+// Select the complete pixel bundle; decoded BW is already applied.
+wire       vm_ce = composite_en ? cvbs_ce : ce_pix;
+wire       g_hs, g_vs, g_hb, g_vb;
+wire [7:0] g_r, g_g, g_b;
+gamma_fast gamma
+(
+	.clk_vid   (CLK_VIDEO),
+	.ce_pix    (vm_ce),
+	.gamma_bus (gamma_bus),
+	.HSync     (composite_en ? cvbs_hs : HSync),
+	.VSync     (composite_en ? cvbs_vs : VSync),
+	.HBlank    (composite_en ? cvbs_hb : HBlank),
+	.VBlank    (composite_en ? cvbs_vb : VBlank),
+	.DE        (1'b0),
+	.RGB_in    (composite_en ? {cvbs_r, cvbs_g, cvbs_b} : {R, G, B}),
+	.HSync_out (g_hs),
+	.VSync_out (g_vs),
+	.HBlank_out(g_hb),
+	.VBlank_out(g_vb),
+	.DE_out    (),
+	.RGB_out   ({g_r, g_g, g_b})
+);
+
+wire [21:0] vm_gamma_bus;
+video_mixer #(.LINE_LENGTH(640), .GAMMA(0)) video_mixer
 (
 	.*,
+	.gamma_bus(vm_gamma_bus),
 	.VGA_DE(vga_de),
 	.freeze_sync(),
-	// Select the complete pixel bundle; decoded BW is already applied.
-	.ce_pix(composite_en ? cvbs_ce : ce_pix),
-	.R(composite_en ? cvbs_r : R),
-	.G(composite_en ? cvbs_g : G),
-	.B(composite_en ? cvbs_b : B),
-	.HSync(composite_en ? cvbs_hs : HSync),
-	.VSync(composite_en ? cvbs_vs : VSync),
-	.HBlank(composite_en ? cvbs_hb : HBlank),
-	.VBlank(composite_en ? cvbs_vb : VBlank),
+	.ce_pix(vm_ce),
+	.R(g_r),
+	.G(g_g),
+	.B(g_b),
+	.HSync(g_hs),
+	.VSync(g_vs),
+	.HBlank(g_hb),
+	.VBlank(g_vb),
 	// Like the NES composite path, use decoded RGB for the HDMI scaler
 	// and standard analogue output. Effects apply to native RGB only.
 	.scandoubler((scale || forced_scandoubler) && !composite_en),
